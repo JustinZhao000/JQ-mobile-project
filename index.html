@@ -1,19 +1,220 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>video</title>
-<style>
-  
-</style>
+<meta content="width=device-width,initial-scale=1.0,user-scalable=0" name="viewport">
 <link rel="stylesheet" href="css/jquery.mobile-1.4.5.min.css">
-<script src="js/jquery-3.1.1.js"></script>
-<script src="js/jquery.mobile-1.4.5.min.js"></script>
-
 </head>
-
 <body>
-  
+  <div data-role="page" id="index">
+  	<div data-role="header" data-position="fixed">
+  		<h1>我是内容2</h1>
+  	</div>
+  	<div role="main" class="ui-content">
+  		<form>
+  		<div class="ui-field-contain">
+  		<label>始發站</label>		
+  		<input type="text" id="search-begin">
+  		</div>
+  		<div class="ui-field-contain">
+  		<label>終點站</label>
+  		<input type="text" id="search-end">
+  		</div>
+  		<div class="ui-field-contain">
+  		<label>車次</label>
+  		<input type="text" id="search-no">
+  		</div>
+  		<input id="search-submit" class="ui-btn" value="搜索" type="button">
+     </form>
+
+     <ul data-role="listview" data-inset="true" id="list">
+     	
+     </ul>
+  	</div>
+
+  	<div data-role="footer" data-position="fixed">
+  		<div data-role="navbar">
+  			<ul>
+  				<li><a href="" data-icon="camera">查询</a></li>
+  				<li><a href="" data-icon="camera">设置</a></li>
+  				<li><a href="" data-icon="camera">收藏</a></li>
+  			</ul>
+  		</div>
+  	</div>
+  </div>
+
+  <div data-role="page" id="detail">
+
+    <div data-role="header" data-position="fixed">
+        <h1>列车时刻表查询</h1>
+    </div>
+
+    <div role="main" class="ui-content">
+        <h2></h2>
+        <table data-role="table" id="movie-table" data-mode="reflow" class="ui-responsive">
+            <thead>
+            <tr>
+                <th data-priority="1">站名</th>
+                <th data-priority="persist">到站时间</th>
+                <th data-priority="persist">出发时间</th>
+            </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+        <a href="#" class="ui-btn ui-corner-all" data-rel="back">返回</a>
+    </div>
+<script src="js/jquery-1.11.1.js"></script>
+<script src="js/jquery.mobile-1.4.5.min.js"></script> 
+<script>
+  var urlPre="http://cors.itxti.net/?";
+  var url1="www.webxml.com.cn/WebServices/TrainTimeWebService.asmx/getStationAndTimeByStationName?UserID=";
+  var url2="www.webxml.com.cn/WebServices/TrainTimeWebService.asmx/getStationAndTimeDataSetByLikeTrainCode?UserID=";
+  var url3="www.webxml.com.cn/WebServices/TrainTimeWebService.asmx/getDetailInfoByTrainCode?UserID=";
+ 
+  var getTrainList=function(){
+   if($("#search-no").val()||($("#search-begin").val()&&$("#search-end").val())){
+   	// 設置搜索按鈕不允許點擊
+      var searchButton=$(this);
+      searchButton.button("option","disabled",true);
+    //顯示加載框
+      $.mobile.loading("show");
+      
+      var _data={};
+      var _url=url1;
+      if(!$("search-no").val()){
+      	_data.StartStation=$("#search-begin").val();
+      	_data.ArriveStation=$("#search-end").val();
+      }else{
+      	_data.TrainCode=$("#search-no").val();
+      	_url=url2;
+      }
+
+      // 開始發送請求
+      $.get(urlPre+_url,_data,function(data){
+          var list=$("#list");
+          var timeTables=$(data).find("TimeTable");
+
+          var _arr=[];
+          timeTables.each(function(index,obj){
+             var i=index;
+             // 只加載10條
+             if(i>10) return false;
+             var that=$(this);
+             if(that.find("FirstStation").text()=="數據沒有被發現"){
+             	alert("未找到相應車次");
+             	return false;
+             }
+
+             var _html='<li><a href="#" data-no="'+that.find("TrainCode").text()+'">'+
+                 '<h2>'+that.find("TrainCode").text()+'</h2>'+
+                 '<p>'+that.find("FirstStation").text()+'->'+that.find("LastStation").text()+'</p>'+
+                 '<p>用時：'+that.find("UseDate").text()+'</p>'+
+                 '<p class="ui-li-aside">'+that.find('StartTime').text()+'開</p>'+'</a></li>';
+
+             _arr.push(_html);
+
+          });
+          if(_arr.length>0){
+          list.html(_arr.join(""));
+          list.listview("refresh");
+      }
+         $.mobile.loading("hide");
+         searchButton.button("option","disabled",false);
+        });
+    }  
+   else{
+   	alert("請輸入始發站和終點站，或者輸入車次");;
+   }
+  }
+  var isAjax=false;
+  var getInfoByTrainCode=function(){
+     if(isAjax) return;
+     isAjax=true;
+
+     $.mobile.loading("show");
+
+     var trainCode=$(this).attr("data-no");
+
+     $.get(urlPre+url3,{TrainCode:trainCode},function(data){
+       $("#detail").find(".ui-content h2").first().html(trainCode+"次");
+       var tbody=$("#detail").find(".ui-content tbody");
+
+       tbody.html("");
+       $(data).find("TrainDetailInfo").each(function(index,obj){
+           var that=$(this);
+           var tr=$("<tr></tr>");
+           tr.html("<td>"+that.find("TrainStation").text()+"</td>"+"<td>到达时间:"+that.find("ArriveTime").text()+"</td>"+"<td>离开时间:"+that.find("StartTime").text()+"</td>");
+           
+           tbody.append(tr);
+          
+       });
+       $.mobile.loading("hide");
+       isAjax=false;
+       $.mobile.changePage("#detail");
+     });
+  }
+  var bindEvent=function(){
+    $("#search-submit").on("click",getTrainList);
+    $("#list").on("click","a",getInfoByTrainCode);
+  }
+
+ $(document).on("pageinit","#index",function(){
+     bindEvent();
+     console.log("2");
+  });
+  // 頁面初始化事件
+  	// $(document).on("pagebeforecreate",function(){
+   //       alert("pagebeforecreate");
+  	// });
+  	// $(document).on("pagecreate",function(){
+   //       alert("pagecreate");
+  	// });
+  	// $(document).on("pageinit",function(){
+   //       alert("pageinit");
+  	// });
+
+  	// $(document).on("pagebeforehide","#index",function(){
+   //       alert("pagebeforehide");
+  	// });
+  	// $(document).on("pagehide","#index",function(){
+   //       alert("pagehide");
+  	// });
+  	// $(document).on("pagebeforeshow","#index2",function(){
+   //       alert("pagebeforeshow");
+  	// });
+  	// $(document).on("pageshow","#index2",function(){
+   //       alert("pageshow");
+  	// });
+// $("ajaxbtn").on("click",function(){
+//    	 $.mobile.loading("show"); //點擊后顯示loading
+//       $.get(url,data,function(data){
+//       	console.log(data);
+//       $.mobile.loading("hide");	// 請求結束隱藏
+//       });
+//    });
+  </script>
+<!--   事件
+  頁面初始化事件
+  pagebeforecreate,pagecreate,pageinit
+  頁面加載事件
+
+  页面过度事件
+   pagebeforeshow,pageshow,pagebeforehide,pagehide
+   -->
+  <!--  Touch事件
+   tap
+   taphold
+   swipe 
+   scroll
+   scrollstop
+   -->
+   <!-- 页面初始化
+   $(document).ready(function(){
+
+   });
+   jQM最好使用以下方式初始化
+   $(document).on("pageinit","#page",function(){}) -->
 </body>
 </html>
 
